@@ -1,0 +1,6 @@
+{
+  "name": "Obsidian Subsonic Player",
+  "description": "Minimalist, modern dark-themed web music player for Navidrome and OpenSubsonic servers with dynamic color-sampled now playing view and alphabetical library indexing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

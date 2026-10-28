@@ -1,0 +1,10 @@
+services:
+  # Obsidian Web Player
+  obsidian-player:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: obsidian-subsonic-player
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
