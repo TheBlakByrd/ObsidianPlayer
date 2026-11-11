@@ -29,6 +29,7 @@ export default function App() {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [songs, setSongs] = useState<Track[]>([]);
   const [serverConfig, setServerConfig] = useState(subsonicService.getConfig());
   const [musicFolders, setMusicFolders] = useState<MusicFolder[]>([{ id: 'all', name: 'All Libraries' }]);
   const [selectedMusicFolderId, setSelectedMusicFolderId] = useState<string>(() => {
@@ -69,10 +70,12 @@ export default function App() {
     const fetchedArtists = await subsonicService.getArtists(activeFolderId);
     const fetchedGenres = await subsonicService.getGenres(activeFolderId);
     const fetchedAlbums = await subsonicService.getAllAlbums(activeFolderId);
+    const fetchedSongs = await subsonicService.getAllSongs(activeFolderId);
 
     setArtists(fetchedArtists);
     setGenres(fetchedGenres);
     setAlbums(fetchedAlbums);
+    setSongs(fetchedSongs);
     setServerConfig(subsonicService.getConfig());
   }, [selectedMusicFolderId]);
 
@@ -336,6 +339,21 @@ export default function App() {
     setSelectedGenreName(null);
   };
 
+  const handleShuffleAllSongs = (tracksToShuffle?: Track[]) => {
+    const list = tracksToShuffle && tracksToShuffle.length > 0 ? tracksToShuffle : songs;
+    if (list.length === 0) return;
+    setIsShuffle(true);
+    playTracksList(list, true);
+  };
+
+  const handlePlaySongFromList = (track: Track, remainingTracks: Track[]) => {
+    if (remainingTracks && remainingTracks.length > 0) {
+      playTracksList(remainingTracks, false);
+    } else {
+      playTrackDirectly(track);
+    }
+  };
+
   // Keyboard shortcut support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -373,12 +391,14 @@ export default function App() {
           <LibraryView
             artists={artists}
             genres={genres}
+            songs={songs}
             musicFolders={musicFolders}
             selectedMusicFolderId={selectedMusicFolderId}
             onSelectMusicFolder={handleSelectMusicFolder}
             currentTrack={currentTrack}
             isPlaying={isPlaying}
             onSelectArtist={handleNavigateToArtist}
+            onSelectAlbum={handleNavigateToAlbum}
             onSelectGenre={handleSelectGenre}
             onPlayArtist={(art) => {
               subsonicService.getArtist(art.id).then((fullArt) => {
@@ -386,6 +406,8 @@ export default function App() {
                 if (tracks.length > 0) playTracksList(tracks);
               });
             }}
+            onPlaySong={handlePlaySongFromList}
+            onShuffleAll={handleShuffleAllSongs}
             onOpenServerSettings={() => setIsServerSettingsOpen(true)}
             onOpenDockerGuide={() => setIsDockerGuideOpen(true)}
             isConnectedToServer={serverConfig.isConnected}

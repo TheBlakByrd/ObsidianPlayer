@@ -575,6 +575,65 @@ class SubsonicService {
     return [...DEMO_ALBUMS];
   }
 
+  public async getAllSongs(musicFolderId?: string): Promise<Track[]> {
+    if (!this.isConnectedToServer()) {
+      if (!musicFolderId || musicFolderId === 'all') {
+        return [...DEMO_TRACKS];
+      }
+      if (musicFolderId === 'folder-hires') {
+        return DEMO_TRACKS.filter(t => ['alb-void', 'alb-neoclassica', 'alb-resonance', 'alb-deep', 'alb-zero'].includes(t.albumId));
+      }
+      if (musicFolderId === 'folder-soundtracks') {
+        return DEMO_TRACKS.filter(t => ['alb-void', 'alb-neoclassica', 'alb-echoes', 'alb-koto'].includes(t.albumId));
+      }
+      return DEMO_TRACKS.filter(t => ['alb-orbits', 'alb-resonance', 'alb-chronos', 'alb-helios', 'alb-midnight', 'alb-velvet'].includes(t.albumId));
+    }
+
+    try {
+      const extraParams: Record<string, string | number> = { size: 500 };
+      if (musicFolderId && musicFolderId !== 'all') {
+        extraParams.musicFolderId = musicFolderId;
+      }
+      const url = this.buildUrl('getRandomSongs', extraParams);
+      const res = await fetch(url);
+      const data = await res.json();
+      const subRes = data['subsonic-response'];
+      if (subRes?.status === 'ok' && subRes.randomSongs?.song) {
+        const list = Array.isArray(subRes.randomSongs.song) ? subRes.randomSongs.song : [subRes.randomSongs.song];
+        return list.map((s: any, idx: number) => {
+          const albumCoverUrl = this.getCoverArtForAlbum(s.albumId, s.album);
+          const songCoverUrl = s.coverArt ? this.buildUrl('getCoverArt', { id: s.coverArt, size: 500 }) : '';
+          const finalCover = songCoverUrl || albumCoverUrl;
+
+          if (s.albumId && finalCover) {
+            this.albumCoverCache.set(s.albumId, finalCover);
+          }
+
+          return {
+            id: String(s.id),
+            title: s.title || s.name || `Track ${idx + 1}`,
+            artistId: String(s.artistId || ''),
+            artist: s.artist || 'Unknown Artist',
+            albumId: String(s.albumId || ''),
+            album: s.album || 'Unknown Album',
+            duration: s.duration || 180,
+            trackNumber: s.track || idx + 1,
+            coverArt: finalCover,
+            audioUrl: this.buildUrl('stream', { id: s.id }),
+            bitRate: s.bitRate,
+            format: s.suffix ? `${s.suffix.toUpperCase()} ${s.bitRate ? s.bitRate + 'kbps' : ''}` : 'Audio',
+            year: s.year,
+            genre: s.genre,
+          };
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to get songs from server:', err);
+    }
+
+    return [...DEMO_TRACKS];
+  }
+
   public async search(query: string): Promise<{ artists: Artist[]; albums: Album[]; tracks: Track[] }> {
     const q = query.trim().toLowerCase();
     if (!q) {
