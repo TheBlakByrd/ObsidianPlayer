@@ -1,4 +1,4 @@
-import { Artist, Album, Track, Genre } from '../types/music';
+import { Artist, Album, Track, Genre, MusicFolder } from '../types/music';
 
 // Pre-generated high-fidelity artworks
 const COVER_ASTRAL = '/src/assets/images/album_dark_matter_1792673901065.jpg';
@@ -652,3 +652,11 @@ export const DEMO_GENRES: Genre[] = [
     coverArt: COVER_ASTRAL,
   },
 ];
+
+export const DEMO_MUSIC_FOLDERS: MusicFolder[] = [
+  { id: 'all', name: 'All Libraries' },
+  { id: 'folder-main', name: 'Main Collection' },
+  { id: 'folder-hires', name: 'Hi-Res Lossless' },
+  { id: 'folder-soundtracks', name: 'Soundtracks & Ambient' },
+];
+

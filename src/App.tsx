@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Artist, Album, Track, Genre, RepeatMode } from './types/music';
+import { Artist, Album, Track, Genre, RepeatMode, MusicFolder } from './types/music';
 import { subsonicService } from './services/subsonic';
 import { audioEngine } from './services/audioEngine';
 import { LibraryView } from './components/LibraryView';
@@ -30,6 +30,17 @@ export default function App() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [serverConfig, setServerConfig] = useState(subsonicService.getConfig());
+  const [musicFolders, setMusicFolders] = useState<MusicFolder[]>([{ id: 'all', name: 'All Libraries' }]);
+  const [selectedMusicFolderId, setSelectedMusicFolderId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('obsidian_selected_folder_id') || 'all';
+      } catch {
+        // ignore
+      }
+    }
+    return 'all';
+  });
 
   // Detailed selected objects
   const [activeArtistObj, setActiveArtistObj] = useState<Artist | null>(null);
@@ -49,16 +60,33 @@ export default function App() {
   const currentTrack: Track | null = queue[currentIndex] || null;
 
   // Load Library Data
-  const loadLibrary = useCallback(async () => {
-    const fetchedArtists = await subsonicService.getArtists();
-    const fetchedGenres = await subsonicService.getGenres();
-    const fetchedAlbums = await subsonicService.getAllAlbums();
+  const loadLibrary = useCallback(async (folderIdToLoad?: string) => {
+    const activeFolderId = folderIdToLoad !== undefined ? folderIdToLoad : selectedMusicFolderId;
+
+    const fetchedFolders = await subsonicService.getMusicFolders();
+    setMusicFolders(fetchedFolders);
+
+    const fetchedArtists = await subsonicService.getArtists(activeFolderId);
+    const fetchedGenres = await subsonicService.getGenres(activeFolderId);
+    const fetchedAlbums = await subsonicService.getAllAlbums(activeFolderId);
 
     setArtists(fetchedArtists);
     setGenres(fetchedGenres);
     setAlbums(fetchedAlbums);
     setServerConfig(subsonicService.getConfig());
-  }, []);
+  }, [selectedMusicFolderId]);
+
+  const handleSelectMusicFolder = (folderId: string) => {
+    setSelectedMusicFolderId(folderId);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('obsidian_selected_folder_id', folderId);
+      } catch {
+        // ignore
+      }
+    }
+    loadLibrary(folderId);
+  };
 
   useEffect(() => {
     loadLibrary();
@@ -345,6 +373,9 @@ export default function App() {
           <LibraryView
             artists={artists}
             genres={genres}
+            musicFolders={musicFolders}
+            selectedMusicFolderId={selectedMusicFolderId}
+            onSelectMusicFolder={handleSelectMusicFolder}
             currentTrack={currentTrack}
             isPlaying={isPlaying}
             onSelectArtist={handleNavigateToArtist}

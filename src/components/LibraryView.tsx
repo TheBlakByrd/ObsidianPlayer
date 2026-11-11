@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { Search, Play, Server, Layers, Disc3 } from 'lucide-react';
-import { Artist, Genre, Track } from '../types/music';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Search, Play, Server, Layers, Disc3, Folder, ChevronDown, Check } from 'lucide-react';
+import { Artist, Genre, Track, MusicFolder } from '../types/music';
 import { AlphabetSidebar } from './AlphabetSidebar';
 
 export type LibraryTab = 'artists' | 'genres';
@@ -8,6 +8,9 @@ export type LibraryTab = 'artists' | 'genres';
 interface LibraryViewProps {
   artists: Artist[];
   genres: Genre[];
+  musicFolders: MusicFolder[];
+  selectedMusicFolderId: string;
+  onSelectMusicFolder: (folderId: string) => void;
   currentTrack: Track | null;
   isPlaying: boolean;
   onSelectArtist: (artistId: string) => void;
@@ -22,6 +25,9 @@ interface LibraryViewProps {
 export const LibraryView: React.FC<LibraryViewProps> = ({
   artists,
   genres,
+  musicFolders = [],
+  selectedMusicFolderId = 'all',
+  onSelectMusicFolder,
   currentTrack,
   isPlaying,
   onSelectArtist,
@@ -35,7 +41,29 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [activeTab, setActiveTab] = useState<LibraryTab>('artists');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeLetter, setActiveLetter] = useState<string>('');
+  const [isFolderDropdownOpen, setIsFolderDropdownOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const folderDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close folder dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (folderDropdownRef.current && !folderDropdownRef.current.contains(event.target as Node)) {
+        setIsFolderDropdownOpen(false);
+      }
+    };
+    if (isFolderDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isFolderDropdownOpen]);
+
+  const selectedFolderName = useMemo(() => {
+    const found = musicFolders.find((f) => f.id === selectedMusicFolderId);
+    return found ? found.name : 'All Libraries';
+  }, [musicFolders, selectedMusicFolderId]);
 
   // Filtered artists
   const filteredArtists = useMemo(() => {
@@ -93,50 +121,126 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       {/* Top Navigation & Toolbar */}
       <header className="sticky top-0 z-20 px-6 sm:px-10 py-5 bg-black/90 backdrop-blur-xl border-b border-neutral-900">
         <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          {/* Left: Brand title & mode info */}
-          <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white">
-              <Disc3 className="w-4 h-4 text-neutral-200" />
+          {/* Left: Brand title, library switcher & mode info */}
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white">
+                <Disc3 className="w-4 h-4 text-neutral-200" />
+              </div>
+              <div>
+                <span className="text-base font-semibold tracking-tight text-white block leading-none">
+                  Obsidian
+                </span>
+                <span className="text-[11px] text-neutral-500 font-mono">
+                  OpenSubsonic
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="text-base font-semibold tracking-tight text-white block leading-none">
-                Obsidian
-              </span>
-              <span className="text-[11px] text-neutral-500 font-mono">
-                OpenSubsonic
-              </span>
+
+            <div className="h-4 w-[1px] bg-neutral-800 hidden sm:block" />
+
+            {/* Library / Music Folder Switcher Dropdown */}
+            {musicFolders.length > 0 && (
+              <div className="relative" ref={folderDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsFolderDropdownOpen(!isFolderDropdownOpen)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all flex items-center gap-2 ${
+                    isFolderDropdownOpen
+                      ? 'bg-neutral-800 border-neutral-700 text-white shadow-sm'
+                      : 'bg-neutral-900/90 border-neutral-800/90 text-neutral-300 hover:text-white hover:border-neutral-700'
+                  }`}
+                  title="Switch music library folder"
+                  aria-haspopup="listbox"
+                  aria-expanded={isFolderDropdownOpen}
+                >
+                  <Folder className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                  <span className="max-w-[120px] sm:max-w-[160px] truncate font-normal">
+                    {selectedFolderName}
+                  </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-neutral-500 transition-transform duration-200 shrink-0 ${
+                      isFolderDropdownOpen ? 'rotate-180 text-white' : ''
+                    }`}
+                  />
+                </button>
+
+                {isFolderDropdownOpen && (
+                  <div
+                    role="listbox"
+                    aria-label="Music Libraries"
+                    className="absolute left-0 top-full mt-1.5 w-56 rounded-xl bg-neutral-950/95 backdrop-blur-xl border border-neutral-800 shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                  >
+                    <div className="px-3 py-1 text-[10px] uppercase font-mono tracking-wider text-neutral-500 border-b border-neutral-900 mb-1">
+                      Server Libraries ({musicFolders.length})
+                    </div>
+                    <div className="max-h-60 overflow-y-auto divide-y divide-neutral-900/40">
+                      {musicFolders.map((folder) => {
+                        const isSelected = folder.id === selectedMusicFolderId;
+                        return (
+                          <button
+                            key={folder.id}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              onSelectMusicFolder(folder.id);
+                              setIsFolderDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left transition-colors ${
+                              isSelected
+                                ? 'text-white bg-white/10 font-medium'
+                                : 'text-neutral-300 hover:text-white hover:bg-neutral-900/80'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                              <Folder
+                                className={`w-3.5 h-3.5 shrink-0 ${
+                                  isSelected ? 'text-emerald-400' : 'text-neutral-500'
+                                }`}
+                              />
+                              <span className="truncate">{folder.name}</span>
+                            </div>
+                            {isSelected && (
+                              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="h-4 w-[1px] bg-neutral-800 hidden sm:block" />
+
+            {/* Segmented Choice: Album Artists vs Genres */}
+            <div className="flex items-center p-1 bg-neutral-900/90 rounded-lg border border-neutral-800/80">
+              <button
+                type="button"
+                onClick={() => setActiveTab('artists')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  activeTab === 'artists'
+                    ? 'bg-neutral-800 text-white shadow-sm'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                Album Artists
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('genres')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  activeTab === 'genres'
+                    ? 'bg-neutral-800 text-white shadow-sm'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                Genres
+              </button>
             </div>
           </div>
-
-          <div className="h-4 w-[1px] bg-neutral-800 hidden sm:block" />
-
-          {/* Segmented Choice: Album Artists vs Genres */}
-          <div className="flex items-center p-1 bg-neutral-900/90 rounded-lg border border-neutral-800/80">
-            <button
-              type="button"
-              onClick={() => setActiveTab('artists')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                activeTab === 'artists'
-                  ? 'bg-neutral-800 text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Album Artists
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('genres')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                activeTab === 'genres'
-                  ? 'bg-neutral-800 text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Genres
-            </button>
-          </div>
-        </div>
 
         {/* Right: Search + Server / Docker Modals */}
         <div className="flex items-center gap-3">

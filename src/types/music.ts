@@ -61,4 +61,9 @@ export interface SubsonicServerConfig {
   serverName?: string;
 }
 
+export interface MusicFolder {
+  id: string;
+  name: string;
+}
+
 export type RepeatMode = 'off' | 'all' | 'one';

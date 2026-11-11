@@ -1,5 +1,5 @@
-import { Artist, Album, Track, Genre, SubsonicServerConfig } from '../types/music';
-import { DEMO_ARTISTS, DEMO_ALBUMS, DEMO_TRACKS, DEMO_GENRES } from '../data/demoLibrary';
+import { Artist, Album, Track, Genre, SubsonicServerConfig, MusicFolder } from '../types/music';
+import { DEMO_ARTISTS, DEMO_ALBUMS, DEMO_TRACKS, DEMO_GENRES, DEMO_MUSIC_FOLDERS } from '../data/demoLibrary';
 
 // Lightweight MD5 implementation for Subsonic token auth without heavy external dependencies
 function md5(string: string): string {
@@ -303,13 +303,52 @@ class SubsonicService {
     }
   }
 
-  public async getArtists(): Promise<Artist[]> {
+  public async getMusicFolders(): Promise<MusicFolder[]> {
     if (!this.isConnectedToServer()) {
-      return [...DEMO_ARTISTS];
+      return [...DEMO_MUSIC_FOLDERS];
     }
 
     try {
-      const url = this.buildUrl('getArtists');
+      const url = this.buildUrl('getMusicFolders');
+      const res = await fetch(url);
+      const data = await res.json();
+      const subRes = data['subsonic-response'];
+      if (subRes?.status === 'ok' && subRes.musicFolders?.musicFolder) {
+        const raw = subRes.musicFolders.musicFolder;
+        const list = Array.isArray(raw) ? raw : [raw];
+        const folders: MusicFolder[] = list.map((f: any) => ({
+          id: String(f.id),
+          name: f.name || `Library ${f.id}`,
+        }));
+        return [{ id: 'all', name: 'All Libraries' }, ...folders];
+      }
+    } catch (err) {
+      console.warn('Failed to fetch music folders:', err);
+    }
+
+    return [{ id: 'all', name: 'All Libraries' }];
+  }
+
+  public async getArtists(musicFolderId?: string): Promise<Artist[]> {
+    if (!this.isConnectedToServer()) {
+      if (!musicFolderId || musicFolderId === 'all') {
+        return [...DEMO_ARTISTS];
+      }
+      if (musicFolderId === 'folder-hires') {
+        return DEMO_ARTISTS.filter(a => ['art-astral', 'art-nordic', 'art-amber', 'art-deep', 'art-zero'].includes(a.id));
+      }
+      if (musicFolderId === 'folder-soundtracks') {
+        return DEMO_ARTISTS.filter(a => ['art-astral', 'art-nordic', 'art-echoes', 'art-koto'].includes(a.id));
+      }
+      return DEMO_ARTISTS.filter(a => ['art-synthesian', 'art-amber', 'art-chronos', 'art-helios', 'art-midnight', 'art-velvet'].includes(a.id));
+    }
+
+    try {
+      const extraParams: Record<string, string | number> = {};
+      if (musicFolderId && musicFolderId !== 'all') {
+        extraParams.musicFolderId = musicFolderId;
+      }
+      const url = this.buildUrl('getArtists', extraParams);
       const res = await fetch(url);
       const data = await res.json();
       const subRes = data['subsonic-response'];
@@ -329,7 +368,7 @@ class SubsonicService {
             }
           }
         }
-        return parsedArtists.length > 0 ? parsedArtists : DEMO_ARTISTS;
+        return parsedArtists;
       }
     } catch (err) {
       console.warn('Failed to fetch artists from Subsonic server, using demo library:', err);
@@ -445,13 +484,26 @@ class SubsonicService {
     return DEMO_ALBUMS.find(a => a.id === albumId) || null;
   }
 
-  public async getGenres(): Promise<Genre[]> {
+  public async getGenres(musicFolderId?: string): Promise<Genre[]> {
     if (!this.isConnectedToServer()) {
-      return [...DEMO_GENRES];
+      if (!musicFolderId || musicFolderId === 'all') {
+        return [...DEMO_GENRES];
+      }
+      if (musicFolderId === 'folder-hires') {
+        return DEMO_GENRES.filter(g => ['Ambient Space', 'Modern Classical', 'Noir Jazz'].includes(g.name));
+      }
+      if (musicFolderId === 'folder-soundtracks') {
+        return DEMO_GENRES.filter(g => ['Ambient Space', 'Modern Classical', 'Post-Rock', 'Organic Electronic'].includes(g.name));
+      }
+      return DEMO_GENRES.filter(g => ['Electronic', 'Noir Jazz', 'Modern Classical', 'Synthwave', 'Lo-Fi Chill'].includes(g.name));
     }
 
     try {
-      const url = this.buildUrl('getGenres');
+      const extraParams: Record<string, string | number> = {};
+      if (musicFolderId && musicFolderId !== 'all') {
+        extraParams.musicFolderId = musicFolderId;
+      }
+      const url = this.buildUrl('getGenres', extraParams);
       const res = await fetch(url);
       const data = await res.json();
       const subRes = data['subsonic-response'];
@@ -471,13 +523,26 @@ class SubsonicService {
     return [...DEMO_GENRES];
   }
 
-  public async getAllAlbums(): Promise<Album[]> {
+  public async getAllAlbums(musicFolderId?: string): Promise<Album[]> {
     if (!this.isConnectedToServer()) {
-      return [...DEMO_ALBUMS];
+      if (!musicFolderId || musicFolderId === 'all') {
+        return [...DEMO_ALBUMS];
+      }
+      if (musicFolderId === 'folder-hires') {
+        return DEMO_ALBUMS.filter(a => ['alb-void', 'alb-neoclassica', 'alb-resonance', 'alb-deep', 'alb-zero'].includes(a.id));
+      }
+      if (musicFolderId === 'folder-soundtracks') {
+        return DEMO_ALBUMS.filter(a => ['alb-void', 'alb-neoclassica', 'alb-echoes', 'alb-koto'].includes(a.id));
+      }
+      return DEMO_ALBUMS.filter(a => ['alb-orbits', 'alb-resonance', 'alb-chronos', 'alb-helios', 'alb-midnight', 'alb-velvet'].includes(a.id));
     }
 
     try {
-      const url = this.buildUrl('getAlbumList2', { type: 'alphabeticalByName', size: 100 });
+      const extraParams: Record<string, string | number> = { type: 'alphabeticalByName', size: 100 };
+      if (musicFolderId && musicFolderId !== 'all') {
+        extraParams.musicFolderId = musicFolderId;
+      }
+      const url = this.buildUrl('getAlbumList2', extraParams);
       const res = await fetch(url);
       const data = await res.json();
       const subRes = data['subsonic-response'];
