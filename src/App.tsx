@@ -16,9 +16,14 @@ type AppView = 'library' | 'artist' | 'album' | 'genre';
 
 export default function App() {
   // Navigation State
-  const [currentView, setCurrentView] = useState<AppView>('library');
+  const initialAlbumParam =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('album')
+      : null;
+
+  const [currentView, setCurrentView] = useState<AppView>(initialAlbumParam ? 'album' : 'library');
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
-  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(initialAlbumParam);
   const [selectedGenreName, setSelectedGenreName] = useState<string | null>(null);
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(false);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
@@ -337,6 +342,11 @@ export default function App() {
     setSelectedArtistId(null);
     setSelectedAlbumId(null);
     setSelectedGenreName(null);
+    if (typeof window !== 'undefined' && window.location.search.includes('album=')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('album');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    }
   };
 
   const handleShuffleAllSongs = (tracksToShuffle?: Track[]) => {

@@ -66,4 +66,12 @@ export interface MusicFolder {
   name: string;
 }
 
+export interface AlbumShare {
+  id: string;
+  url: string;
+  description?: string;
+  expires?: string;
+  visitCount?: number;
+}
+
 export type RepeatMode = 'off' | 'all' | 'one';

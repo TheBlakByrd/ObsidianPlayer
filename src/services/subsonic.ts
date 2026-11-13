@@ -1,4 +1,4 @@
-import { Artist, Album, Track, Genre, SubsonicServerConfig, MusicFolder } from '../types/music';
+import { Artist, Album, Track, Genre, SubsonicServerConfig, MusicFolder, AlbumShare } from '../types/music';
 import { DEMO_ARTISTS, DEMO_ALBUMS, DEMO_TRACKS, DEMO_GENRES, DEMO_MUSIC_FOLDERS } from '../data/demoLibrary';
 
 // Lightweight MD5 implementation for Subsonic token auth without heavy external dependencies
@@ -632,6 +632,88 @@ class SubsonicService {
     }
 
     return [...DEMO_TRACKS];
+  }
+
+  public getNormalizedServerUrl(): string {
+    if (!this.config.url) return '';
+    let baseUrl = this.config.url.trim().replace(/\/+$/, '');
+    if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      baseUrl = 'http://' + baseUrl;
+    }
+    return baseUrl;
+  }
+
+  public getNavidromeAlbumUrl(albumId: string): string | null {
+    if (!this.isConnectedToServer() || albumId.startsWith('alb-')) {
+      return null;
+    }
+    const baseUrl = this.getNormalizedServerUrl();
+    if (!baseUrl) return null;
+    return `${baseUrl}/app/#/album/${encodeURIComponent(albumId)}/show`;
+  }
+
+  public async createAlbumShare(
+    albumId: string,
+    description?: string,
+    expiresMs?: number
+  ): Promise<{ success: boolean; share?: AlbumShare; error?: string; isDemo?: boolean }> {
+    if (!this.isConnectedToServer() || albumId.startsWith('alb-')) {
+      return {
+        success: false,
+        isDemo: true,
+        error: 'Connect a Navidrome server in settings to generate a live public share link.',
+      };
+    }
+
+    try {
+      const extraParams: Record<string, string | number> = { id: albumId };
+      if (description && description.trim()) {
+        extraParams.description = description.trim();
+      }
+      if (expiresMs && expiresMs > 0) {
+        extraParams.expires = expiresMs;
+      }
+
+      const url = this.buildUrl('createShare', extraParams);
+      const res = await fetch(url);
+      if (!res.ok) {
+        return { success: false, error: `Server returned HTTP ${res.status}` };
+      }
+
+      const data = await res.json();
+      const subRes = data['subsonic-response'];
+      if (subRes?.status === 'ok' && subRes.shares?.share) {
+        const rawList = Array.isArray(subRes.shares.share) ? subRes.shares.share : [subRes.shares.share];
+        const rawShare = rawList[0];
+        if (rawShare) {
+          let shareUrl = String(rawShare.url || '');
+          const baseUrl = this.getNormalizedServerUrl();
+          if (shareUrl.startsWith('/') && baseUrl) {
+            shareUrl = `${baseUrl}${shareUrl}`;
+          }
+          if (!shareUrl && rawShare.id && baseUrl) {
+            shareUrl = `${baseUrl}/share/${rawShare.id}`;
+          }
+
+          return {
+            success: true,
+            share: {
+              id: String(rawShare.id || ''),
+              url: shareUrl,
+              description: rawShare.description,
+              expires: rawShare.expires,
+              visitCount: rawShare.visitCount,
+            },
+          };
+        }
+      }
+
+      const errMsg = subRes?.error?.message || 'Unable to create share link on server.';
+      return { success: false, error: errMsg };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Network error creating share link.';
+      return { success: false, error: msg };
+    }
   }
 
   public async search(query: string): Promise<{ artists: Artist[]; albums: Album[]; tracks: Track[] }> {
